@@ -1,47 +1,39 @@
 // SubArc.jsx
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { polarToCartesian, describeDonutWedge, deg2rad } from "../utils";
-
-/**
- * Props:
- *  - category: object (with subcategories)
- *  - size, half, innerRadius, outerRadius, itemSize, subArcSpan (optional fallback), colors
- *  - getPositionById: function
- *  - gapBetween: number (px) -> gap between category button and the arc (default 12)
- *  - iconSpacing: number (px) -> horizontal spacing between sub-icons (default 8)
- *  - minSpanDeg: number -> minimum arc span in degrees (default 12)
- *  - maxSpanDeg: number -> maximum arc span in degrees (default 160)
- */
+import { AnimatePresence } from "framer-motion";
 export default function SubArc({
   category,
   size,
   half,
-  innerRadius,
+
   outerRadius,
   itemSize,
-  // optional fallback prop (not used if dynamic)
-  subArcSpan,
-  colors,
+
   getPositionById,
-  gapBetween = 40,
-  iconSpacing = 28,
+  gapBetween = 35,
+  iconSpacing = 15,
   minSpanDeg = 12,
+  onClick = () => {},
   maxSpanDeg = 160,
+  onHover = () => {},
+  onMouseOut = () => {},
 }) {
-  // 1) pos (safe hook): compute once, even if category is null
+  const [hovered, setHovered] = useState(null); // add this per item
+
   const pos = useMemo(() => {
     try {
       return category ? getPositionById(category.id) : null;
     } catch (e) {
-      // defensive: if getPositionById isn't safe with null, just return null
       return null;
     }
   }, [category, getPositionById]);
 
-  // 2) compute arc radii and mid radius (safe even when pos is null)
+  iconSpacing =
+    category?.subcategory?.length > 2 ? iconSpacing - 10 : iconSpacing;
+
   const { arcInner, arcOuter, midRForIcons } = useMemo(() => {
-    // arcInner should start outside the category buttons by gapBetween
     const computedArcInner = outerRadius + gapBetween;
     const computedArcOuter = computedArcInner + Math.max(itemSize * 1.2, 48);
     const computedMid = (computedArcInner + computedArcOuter) / 2;
@@ -52,38 +44,25 @@ export default function SubArc({
     };
   }, [outerRadius, gapBetween, itemSize]);
 
-  // 3) count of subs (safe)
   const subs = category?.subcategories || [];
   const n = Math.max(subs.length, 1);
 
-  // 4) compute dynamic angular span (unconditional hook)
   const spanRad = useMemo(() => {
-    // fallback if midRForIcons <= 0
     const R = Math.max(1, midRForIcons);
-
-    if (n <= 1) {
-      return deg2rad(Math.max(10, minSpanDeg));
-    }
-
+    if (n <= 1) return deg2rad(Math.max(10, minSpanDeg));
     const requiredArcLength = (n - 1) * (itemSize + iconSpacing);
     let theta = requiredArcLength / R;
-
-    // small angular padding
     const padRad = deg2rad(12);
     theta += padRad;
-
     const minRad = deg2rad(minSpanDeg);
     const maxRad = deg2rad(maxSpanDeg);
     if (theta < minRad) theta = minRad;
     if (theta > maxRad) theta = maxRad;
-
     return theta;
   }, [n, itemSize, iconSpacing, midRForIcons, minSpanDeg, maxSpanDeg]);
 
-  // 5) centerAngle (safe default if pos null)
   const centerAngle = pos ? pos.angle : 0;
 
-  // 6) compute start/end angles and path (unconditional)
   const { startAngle, endAngle, pathD } = useMemo(() => {
     const sA = centerAngle - spanRad / 2;
     const eA = centerAngle + spanRad / 2;
@@ -91,7 +70,6 @@ export default function SubArc({
     return { startAngle: sA, endAngle: eA, pathD: path };
   }, [centerAngle, spanRad, half, arcInner, arcOuter]);
 
-  // 7) compute iconAngles fallback-safe (unconditional)
   const iconAngles = useMemo(() => {
     if (n === 1) return [centerAngle];
     return Array.from({ length: n }, (_, i) => {
@@ -100,62 +78,24 @@ export default function SubArc({
     });
   }, [n, startAngle, endAngle, centerAngle]);
 
-  // Now it's safe to early-return if there's no category or no position
   if (!category || !pos) return null;
 
-  // variants for fade-up animation
-  const arcVariants = {
-    hidden: { opacity: 0, y: 10 },
-    visible: {
-      opacity: 1,
-      y: 0,
-      transition: {
-        when: "beforeChildren",
-        staggerChildren: 0.06,
-        ease: "easeOut",
-        duration: 0.16,
-      },
-    },
-    exit: { opacity: 0, y: 10, transition: { duration: 0.16 } },
-  };
+  // animation tuning: ONLY opacity + scale for appearance
+  const pathDuration = 0.18; // arc reveal duration
+  const pathBuffer = 0; // extra wait before icons start (already included in delay calc)
+  const itemStagger = 0.04; // per-icon stagger
+  const popDuration = 0.14; // icon pop duration
+  const pathEasing = [0.22, 1, 0.36, 1];
 
-  const pathVariants = {
-    hidden: { opacity: 0, pathLength: 0.98, y: 8 },
-    visible: {
-      opacity: 1,
-      pathLength: 1,
-      y: 0,
-      transition: { duration: 0.18, ease: "easeOut" },
-    },
-    exit: {
-      opacity: 0,
-      pathLength: 0.98,
-      y: 8,
-      transition: { duration: 0.14 },
-    },
-  };
+  // unique ids
+  const gid = `arcGrad-${category.id}`;
+  const shadowFilter = `softShadow-${category.id}`;
 
-  const itemVariants = {
-    hidden: { opacity: 0, y: 10, scale: 0.98 },
-    visible: {
-      opacity: 1,
-      y: 0,
-      scale: 1,
-      transition: { duration: 0.22, ease: "easeOut" },
-    },
-    exit: { opacity: 0, y: 8, scale: 0.98, transition: { duration: 0.12 } },
-  };
+  const gradStart = polarToCartesian(half, half, arcInner, centerAngle); // unutrašnja ivica
+  const gradEnd = polarToCartesian(half, half, arcOuter, centerAngle); // vanjska ivica
 
   return (
-    <motion.div
-      className="absolute inset-0"
-      initial="hidden"
-      animate="visible"
-      exit="exit"
-      variants={arcVariants}
-      style={{ pointerEvents: "none" }}
-    >
-      {/* SVG arc background */}
+    <div className="absolute inset-0" style={{ pointerEvents: "none" }}>
       <svg
         width={size}
         height={size}
@@ -163,51 +103,153 @@ export default function SubArc({
         className="absolute top-0 left-0"
         style={{ overflow: "visible", pointerEvents: "none" }}
       >
+        <defs>
+          <linearGradient
+            id={gid}
+            gradientUnits="userSpaceOnUse"
+            x1={gradStart.x}
+            y1={gradStart.y}
+            x2={gradEnd.x}
+            y2={gradEnd.y}
+          >
+            {/* slab crni na unutrašnjoj ivici -> jači prema vanjskoj */}
+            <stop offset="0%" stopColor="#676370" stopOpacity="0.05" />
+            <stop offset="55%" stopColor="#676370" stopOpacity="0.40" />
+            <stop offset="100%" stopColor="#676370" stopOpacity="0.72" />
+          </linearGradient>
+
+          <filter
+            id={shadowFilter}
+            x="-50%"
+            y="-50%"
+            width="200%"
+            height="200%"
+          >
+            <feDropShadow
+              dx="0"
+              dy="6"
+              stdDeviation="12"
+              floodColor="#0b0716"
+              floodOpacity="0.45"
+            />
+          </filter>
+        </defs>
+
+        {/* ARC: only animates opacity + scale */}
         <motion.path
           d={pathD}
-          variants={pathVariants}
-          fill={colors.arcFill}
-          style={{ pointerEvents: "none" }}
+          initial={{ opacity: 0, scale: 0.98 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: pathDuration, ease: pathEasing }}
+          fill={`url(#${gid})`}
+          style={{
+            pointerEvents: "none",
+            filter: `url(#${shadowFilter})`,
+            transformOrigin: `${half}px ${half}px`,
+          }}
+        />
+
+        {/* subtle overlay band for depth (static opacity + scale matched to arc) */}
+        <motion.path
+          d={pathD}
+          initial={{ opacity: 0, scale: 0.98 }}
+          animate={{ opacity: 0.42, scale: 1.01 }}
+          transition={{ duration: pathDuration, ease: pathEasing }}
+          fill="rgba(255,255,255,0.12)"
+          style={{
+            pointerEvents: "none",
+            mixBlendMode: "screen",
+            transformOrigin: `${half}px ${half}px`,
+          }}
         />
       </svg>
 
-      {/* subcategory icons placed on mid radius */}
+      {/* ICONS: appear after arc using only opacity + scale */}
       {subs.map((sc, idx) => {
+        const rForIcons = arcOuter + itemSize * 0.05;
         const a = iconAngles[idx];
-        const { x, y } = polarToCartesian(half, half, midRForIcons, a);
+        const { x, y } = polarToCartesian(half, half, rForIcons, a);
         const left = x - itemSize / 2;
         const top = y - itemSize / 2;
+        const delay = pathDuration + pathBuffer + idx * itemStagger;
 
         return (
-          <motion.button
+          <div
+            onClick={() => onClick(sc)}
             key={sc.id}
-            className="absolute flex items-center justify-center rounded-full shadow-md focus:outline-none"
-            style={{
-              left,
-              top,
-              width: itemSize,
-              height: itemSize,
-              background:
-                "linear-gradient(180deg, rgba(99,102,241,1), rgba(49,46,129,1))",
-              boxShadow: `0 6px 18px ${colors.itemShadow}`,
-              border: "2px solid rgba(255,255,255,0.06)",
-              color: "#fff",
-              zIndex: 60,
-
-              pointerEvents: "auto",
+            className="absolute flex flex-col items-center"
+            style={{ left, top }}
+            onMouseEnter={() => {
+              setHovered(sc.id);
+              onHover(sc);
             }}
-            onClick={() => console.log("Subcategory clicked:", sc.id)}
-            title={sc.name}
-            initial="hidden"
-            animate="visible"
-            exit="exit"
-            variants={itemVariants}
-            aria-label={sc.name}
+            onMouseLeave={() => {
+              setHovered(null);
+              onMouseOut();
+            }}
           >
-            <span className="text-sm select-none">🏠</span>
-          </motion.button>
+            {/* Tooltip only when hovered */}
+            <AnimatePresence>
+              {hovered === sc.id && (
+                <motion.div
+                  className="mb-2 px-2 py-1 absolute z-100 rounded-md text-white text-sm whitespace-nowrap"
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: -35 }}
+                  exit={{ opacity: 0, y: 6 }}
+                  transition={{ duration: 0.2 }}
+                  style={{ pointerEvents: "none", background: "#12042DD4" }}
+                >
+                  {sc.name}
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Subcategory button */}
+            <motion.button
+              className="flex items-center justify-center rounded-full focus:outline-none"
+              style={{
+                width: itemSize - 10,
+                height: itemSize - 10,
+                background:
+                  "radial-gradient(circle, rgba(36,5,97,0.7) 0%, rgba(18,4,45,0.85) 83%)",
+                boxShadow: `0 10px 30px rgba(11,7,22,0.55), inset 0 1px 0 rgba(255,255,255,0.04)`,
+                border: "2px solid rgba(255,255,255,0.06)",
+                color: "#fff",
+                zIndex: 60,
+                pointerEvents: "auto",
+              }}
+              onClick={() => console.log("Subcategory clicked:", sc.id)}
+              initial={{ opacity: 0, scale: 0.86 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.12 } }}
+              transition={{
+                duration: popDuration,
+                ease: "easeOut",
+                delay,
+              }}
+              whileHover={{ scale: 1.06 }}
+              whileTap={{ scale: 0.96 }}
+            >
+              {sc.Icon ? (
+                <sc.Icon className="text-2xl" />
+              ) : (
+                <svg
+                  width="22"
+                  height="22"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    d="M3 11.5L12 4l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1v-8.5z"
+                    fill="white"
+                  />
+                </svg>
+              )}
+            </motion.button>
+          </div>
         );
       })}
-    </motion.div>
+    </div>
   );
 }

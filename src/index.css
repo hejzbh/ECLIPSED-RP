@@ -1,3 +1,76 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* src/index.css */
+
+/* Akrobat font-family registrations */
+@font-face {
+  font-family: "Akrobat";
+  src: url("./assets/font/akrobat/Akrobat-Thin.otf") format("opentype");
+  font-weight: 100;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Akrobat";
+  src: url("./assets/font/akrobat/Akrobat-ExtraLight.otf") format("opentype");
+  font-weight: 200;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Akrobat";
+  src: url("./assets/font/akrobat/Akrobat-Light.otf") format("opentype");
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Akrobat";
+  src: url("./assets/font/akrobat/Akrobat-Regular.otf") format("opentype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Akrobat";
+  src: url("./assets/font/akrobat/Akrobat-SemiBold.otf") format("opentype");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Akrobat";
+  src: url("./assets/font/akrobat/Akrobat-Bold.otf") format("opentype");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Akrobat";
+  src: url("./assets/font/akrobat/Akrobat-ExtraBold.otf") format("opentype");
+  font-weight: 800;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Akrobat";
+  src: url("./assets/font/akrobat/Akrobat-Black.otf") format("opentype");
+  font-weight: 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Main class to apply the Akrobat family */
+.font-akrobat {
+  font-family: "Akrobat", system-ui, -apple-system, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+}

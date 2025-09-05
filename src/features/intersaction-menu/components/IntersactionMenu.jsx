@@ -3,17 +3,16 @@ import React, { useState, useMemo } from "react";
 import CategoryButton from "./CategoryButton";
 import SubArc from "./SubArc";
 import { deg2rad, polarToCartesian } from "../utils";
-import { AnimatePresence } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 
 /**
  * Props:
  *  - categories: array
- *  - size, centerSize, itemSize, ringThickness, subArcSpan, className, onHover, onSelect, colors
+ *  - size, itemSize, ringThickness, subArcSpan, className, onHover, onSelect, colors
  */
 export default function InteractionMenu({
   categories = [],
   size = 420,
-  centerSize = 140,
   itemSize = 56,
   ringThickness = 40,
   subArcSpan = 60,
@@ -21,18 +20,20 @@ export default function InteractionMenu({
   onHover,
   onSelect,
   colors = {
-    bg: "#1f2937",
+    bg: "radial-gradient(circle at center, #9c9bb3 0%, #9c9bb3 12%, #7c7885 83%)",
     itemBg: "linear-gradient(180deg, rgba(79,70,229,1), rgba(59,48,98,1))",
     itemShadow: "rgba(0,0,0,0.35)",
-    centerBg: "linear-gradient(180deg, rgba(30,41,59,1), rgba(17,24,39,1))",
+    centerBg:
+      "radial-gradient(circle at center, #3a376e 0%, #3a376e 12%, #272138 53%)",
     arcFill: "rgba(99,102,241,0.08)",
+    text: "#ffffff",
   },
 }) {
-  const [hoverId, setHoverId] = useState(null);
   const [openId, setOpenId] = useState(null);
+  const [hoveredCategory, setHoveredCategory] = useState();
 
   const half = size / 2;
-  const outerRadius = size / 2 - itemSize / 2 - 6;
+  const outerRadius = size / 2 + itemSize / 100;
   const innerRadius = outerRadius - ringThickness;
 
   const categoryPositions = useMemo(() => {
@@ -49,60 +50,82 @@ export default function InteractionMenu({
 
   return (
     <div
-      className={`relative ${className}`}
-      style={{ width: size, height: size, minWidth: size, minHeight: size }}
+      className={`relative font-akrobat rounded-full ${className}`}
+      style={{
+        width: size,
+        height: size,
+        minWidth: size,
+        minHeight: size,
+        background: colors.bg,
+      }}
     >
       {/* center */}
       <div
-        className="absolute rounded-full flex items-center justify-center text-center text-white"
+        className="absolute rounded-full flex items-center justify-center text-center"
         style={{
-          width: centerSize,
-          height: centerSize,
-          left: `calc(50% - ${centerSize / 2}px)`,
-          top: `calc(50% - ${centerSize / 2}px)`,
-          boxShadow: "inset 0 8px 40px rgba(0,0,0,0.6)",
+          left: "17%",
+          right: "17%",
+          top: "17%",
+          bottom: "17%",
           background: colors.centerBg,
+          color: colors.text,
         }}
       >
-        <div className="px-3">
-          <div className="text-sm opacity-60">
-            {hoverId ? "Category" : "Main"}
-          </div>
-          <div className="text-lg font-semibold mt-1">
-            {hoverId ? categories.find((d) => d.id === hoverId)?.name : "Menu"}
-          </div>
-          <div className="text-xs opacity-60 mt-1">
-            {hoverId
-              ? `${
-                  (
-                    categories.find((d) => d.id === hoverId)?.subcategories ||
-                    []
-                  ).length
-                } subcategories`
-              : ""}
-          </div>
-        </div>
+        <AnimatePresence mode="wait">
+          {hoveredCategory ? (
+            <motion.div
+              key={hoveredCategory.id}
+              className="flex flex-col justify-center items-center text-center"
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.8 }}
+              transition={{ duration: 0.15, ease: "easeOut" }}
+            >
+              {hoveredCategory?.Icon && (
+                <hoveredCategory.Icon
+                  className="text-4xl"
+                  style={{ color: colors.text }}
+                />
+              )}
+              <h1 className="text-3xl font-bold my-1">
+                {hoveredCategory?.name}
+              </h1>
+              {hoveredCategory?.description && (
+                <p
+                  style={{
+                    maxWidth: "100%",
+                    lineHeight: 1.1,
+                    color: colors.text,
+                    opacity: 0.5,
+                  }}
+                  className="text-lg font-thin tracking-wider"
+                >
+                  {hoveredCategory?.subcategories &&
+                    `${hoveredCategory?.subcategories?.length} subcategories`}
+                </p>
+              )}
+            </motion.div>
+          ) : (
+            <motion.h1
+              key="menu-title"
+              className="text-3xl font-bold"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+            >
+              Menu
+            </motion.h1>
+          )}
+        </AnimatePresence>
       </div>
-
-      {/* decorative ring */}
-      <div
-        className="absolute rounded-full"
-        style={{
-          left: `calc(50% - ${outerRadius}px)`,
-          top: `calc(50% - ${outerRadius}px)`,
-          width: outerRadius * 2,
-          height: outerRadius * 2,
-          borderRadius: "9999px",
-          background: `radial-gradient(circle at center, rgba(99,102,241,0.06), transparent 55%)`,
-        }}
-      />
 
       {/* category buttons */}
       {categoryPositions.map((pos) => {
         const { x, y, id, category } = pos;
         const left = x - itemSize / 2;
         const top = y - itemSize / 2;
-        const isHovered = hoverId === id;
+        const isHovered = hoveredCategory?.id === id;
         const isOpen = openId === id;
 
         return (
@@ -115,14 +138,15 @@ export default function InteractionMenu({
             isHovered={isHovered}
             isOpen={isOpen}
             onMouseEnter={() => {
-              setHoverId(id);
+              setHoveredCategory(pos.category);
               if (onHover) onHover(id);
             }}
             onMouseLeave={() => {
-              setHoverId((prev) => (prev === id ? null : prev));
+              setHoveredCategory(null);
               if (onHover) onHover(null);
             }}
             onClick={() => {
+              if (!category.subcategories?.length) return;
               setOpenId((prev) => (prev === id ? null : id));
               if (onSelect) onSelect(openId === id ? null : id);
             }}
@@ -131,7 +155,7 @@ export default function InteractionMenu({
         );
       })}
 
-      {/* sub arc (placed above) */}
+      {/* sub arc */}
       <AnimatePresence>
         {openId ? (
           <SubArc
@@ -141,6 +165,9 @@ export default function InteractionMenu({
             half={half}
             innerRadius={innerRadius}
             outerRadius={outerRadius}
+            onHover={(sc) => setHoveredCategory(sc)}
+            onMouseOut={() => setHoveredCategory(null)}
+            onClick={() => {}}
             itemSize={itemSize}
             subArcSpan={subArcSpan}
             colors={colors}
